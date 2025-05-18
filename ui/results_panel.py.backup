@@ -1,0 +1,419 @@
+"""Results panel UI components.
+
+This module contains UI elements for displaying and interacting with search results.
+"""
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+import os
+import logging
+
+class ResultsPanel:
+    """
+    Panel for displaying search results and providing interaction options.
+    """
+    
+    def __init__(self, parent, callbacks):
+        """
+        Initialize the results panel.
+        
+        Args:
+            parent: Parent frame/widget
+            callbacks: Dictionary of callback functions
+        """
+        self.parent = parent
+        self.callbacks = callbacks
+        
+        # Create the results frame
+        self.results_frame = ttk.LabelFrame(parent, text="Search Results", padding="10")
+        self.results_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Create results UI components
+        self._create_action_buttons()
+        self._create_results_treeview()
+        self._create_context_menu()
+    
+    def _create_action_buttons(self):
+        """
+        Create action buttons for the results panel.
+        """
+        actions_frame = ttk.Frame(self.results_frame)
+        actions_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        left_actions = ttk.Frame(actions_frame)
+        left_actions.pack(side=tk.LEFT, fill=tk.X)
+        
+        right_actions = ttk.Frame(actions_frame)
+        right_actions.pack(side=tk.RIGHT, fill=tk.X)
+        
+        # Select/Deselect buttons
+        ttk.Button(
+            left_actions, 
+            text="Select All", 
+            command=self.select_all_results
+        ).pack(side=tk.LEFT, padx=2)
+        
+        ttk.Button(
+            left_actions, 
+            text="Deselect All", 
+            command=self.deselect_all_results
+        ).pack(side=tk.LEFT, padx=2)
+        
+        # Quick filter
+        ttk.Label(left_actions, text="Quick Filter:").pack(side=tk.LEFT, padx=(10, 2))
+        self.filter_var = tk.StringVar()
+        self.filter_var.trace("w", self._apply_quick_filter)
+        ttk.Entry(left_actions, textvariable=self.filter_var, width=20).pack(side=tk.LEFT, padx=2)
+        
+        # Export button
+        ttk.Button(
+            right_actions, 
+            text="Export Filename Results", 
+            command=self._export_filename_results
+        ).pack(side=tk.RIGHT, padx=2)
+    
+    def _create_results_treeview(self):
+        """
+        Create the treeview for displaying search results.
+        """
+        # Create frame to hold treeview and scrollbars
+        tree_frame = ttk.Frame(self.results_frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create treeview with columns
+        self.results_tree = ttk.Treeview(
+            tree_frame, 
+            columns=("name", "path", "modified"), 
+            show="headings", 
+            selectmode='extended'
+        )
+        
+        # Configure column headings with sort functionality
+        self.sort_direction = {"name": False, "path": False, "modified": False}  # False = ascending
+        
+        self.results_tree.heading("name", text="File Name", 
+                                 command=lambda: self._sort_column("name"))
+        self.results_tree.heading("path", text="Path", 
+                                 command=lambda: self._sort_column("path"))
+        self.results_tree.heading("modified", text="Modified Date", 
+                                 command=lambda: self._sort_column("modified"))
+        
+        # Configure column widths and alignment
+        self.results_tree.column("name", width=250, anchor=tk.W, stretch=True)
+        self.results_tree.column("path", width=450, anchor=tk.W, stretch=True)
+        self.results_tree.column("modified", width=150, anchor=tk.CENTER, stretch=True)
+        
+        # Add scrollbars
+        scrollbar_y = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.results_tree.yview)
+        scrollbar_x = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.results_tree.xview)
+        self.results_tree.configure(yscroll=scrollbar_y.set, xscroll=scrollbar_x.set)
+        
+        # Pack the components
+        self.results_tree.grid(row=0, column=0, sticky='nsew')
+        scrollbar_y.grid(row=0, column=1, sticky='ns')
+        scrollbar_x.grid(row=1, column=0, sticky='ew')
+        
+        # Configure grid weights to make the treeview resizable
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # Bind events
+        self.results_tree.bind("<Button-3>", self._show_context_menu)
+        self.results_tree.bind("<Double-1>", lambda e: self._open_selected_file())
+        self.results_tree.bind("<<TreeviewSelect>>", self._on_selection_change)
+        self.results_tree.bind("<ButtonRelease-1>", self._on_selection_change)
+        
+        # Bind column resize event
+        self.results_tree.bind('<Button-1>', self._column_resize_check)
+    
+    def _create_context_menu(self):
+        """
+        Create the context menu for the results treeview.
+        """
+        self.context_menu = tk.Menu(self.parent, tearoff=0)
+        self.context_menu.add_command(label="Open File", command=self._open_selected_file)
+        self.context_menu.add_command(label="Open Containing Folder", command=self._open_containing_folder)
+        # Add copy path option
+        self.context_menu.add_command(label="Copy File Path", command=self._copy_file_path)
+    
+    def clear_results(self):
+        """
+        Clear all items from the results treeview.
+        """
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+    
+    def add_result(self, name, path, modified_date):
+        """
+        Add a single result to the treeview.
+        
+        Args:
+            name: File name
+            path: Full file path
+            modified_date: Modified date string
+        """
+        self.results_tree.insert("", "end", values=(name, path, modified_date))
+    
+    def add_results(self, results):
+        """
+        Add multiple results to the treeview.
+        
+        Args:
+            results: List of (name, path, modified_date) tuples
+        """
+        for name, path, modified_date in results:
+            self.add_result(name, path, modified_date)
+    
+    def get_selected_files(self):
+        """
+        Get the paths of all selected files.
+        
+        Returns:
+            list: List of file paths
+        """
+        selected_items = self.results_tree.selection()
+        return [self.results_tree.item(item, 'values')[1] for item in selected_items]
+    
+    def select_all_results(self):
+        """
+        Select all results in the treeview.
+        """
+        for item in self.results_tree.get_children():
+            self.results_tree.selection_add(item)
+        
+        # Update selection state
+        self._on_selection_change()
+    
+    def deselect_all_results(self):
+        """
+        Deselect all results in the treeview.
+        """
+        self.results_tree.selection_remove(self.results_tree.selection())
+        
+        # Update selection state
+        self._on_selection_change()
+    
+    def _on_selection_change(self, event=None):
+        """
+        Handle selection changes in the results treeview.
+        """
+        if 'on_result_selection_change' in self.callbacks:
+            selected_items = self.results_tree.selection()
+            self.callbacks['on_result_selection_change'](selected_items)
+    
+    def _show_context_menu(self, event):
+        """
+        Show the context menu on right-click.
+        
+        Args:
+            event: Mouse event
+        """
+        # Select row under mouse if not already selected
+        iid = self.results_tree.identify_row(event.y)
+        if iid:
+            if iid not in self.results_tree.selection():
+                self.results_tree.selection_set(iid)
+            self.context_menu.post(event.x_root, event.y_root)
+    
+    def _open_selected_file(self):
+        """
+        Open the selected file using the system default application.
+        """
+        selected_items = self.results_tree.selection()
+        if not selected_items:
+            return
+            
+        try:
+            file_path = self.results_tree.item(selected_items[0], 'values')[1]
+            os.startfile(file_path)
+            logging.info(f"Opened file: {file_path}")
+        except IndexError:
+            messagebox.showerror("Error", "Could not retrieve file path. Please try again.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open file: {e}")
+            logging.error(f"Error opening file: {e}", exc_info=True)
+    
+    def _open_containing_folder(self):
+        """
+        Open the folder containing the selected file.
+        """
+        selected_items = self.results_tree.selection()
+        if not selected_items:
+            return
+            
+        try:
+            file_path = self.results_tree.item(selected_items[0], 'values')[1]
+            folder_path = os.path.dirname(file_path)
+            os.startfile(folder_path)
+            logging.info(f"Opened folder: {folder_path}")
+        except IndexError:
+            messagebox.showerror("Error", "Could not retrieve folder path. Please try again.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open folder: {e}")
+            logging.error(f"Error opening folder: {e}", exc_info=True)
+    
+    def _copy_file_path(self):
+        """
+        Copy the selected file path to clipboard.
+        """
+        selected_items = self.results_tree.selection()
+        if not selected_items:
+            return
+            
+        try:
+            file_path = self.results_tree.item(selected_items[0], 'values')[1]
+            self.parent.clipboard_clear()
+            self.parent.clipboard_append(file_path)
+            # Create a small info popup
+            self._show_copy_tooltip("Path copied to clipboard")
+            logging.info(f"Copied path to clipboard: {file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not copy file path: {e}")
+            logging.error(f"Error copying file path: {e}", exc_info=True)
+    
+    def _show_copy_tooltip(self, message):
+        """
+        Show a brief tooltip when copying to clipboard.
+        
+        Args:
+            message: Message to display
+        """
+        tooltip = tk.Toplevel(self.parent)
+        tooltip.wm_overrideredirect(True)  # Remove window decorations
+        
+        # Position near mouse
+        x = self.parent.winfo_pointerx() + 15
+        y = self.parent.winfo_pointery() + 10
+        tooltip.geometry(f"+{x}+{y}")
+        
+        # Create label with message
+        label = ttk.Label(tooltip, text=message, padding=5, background="#f0f0f0")
+        label.pack()
+        
+        # Auto-close after 1.5 seconds
+        tooltip.after(1500, tooltip.destroy)
+    
+    def _export_filename_results(self):
+        """
+        Export filename search results to a file.
+        """
+        if 'on_export_filename_results' in self.callbacks:
+            items = self.results_tree.get_children()
+            if not items:
+                messagebox.showinfo("No Results", "There are no filename results to export.")
+                return
+                
+            self.callbacks['on_export_filename_results'](items)
+            
+    def _apply_quick_filter(self, *args):
+        """
+        Apply quick filter to the results treeview.
+        Filter is applied to all columns.
+        """
+        try:
+            # Get filter text
+            filter_text = self.filter_var.get().lower()
+            
+            # If no filter, show all items
+            if not filter_text:
+                for item in self.results_tree.get_children():
+                    self.results_tree.item(item, tags=())
+                return
+            
+            # Check each item against the filter
+            visible_count = 0
+            for item in self.results_tree.get_children():
+                values = self.results_tree.item(item, 'values')
+                # Convert values to lowercase string for matching
+                item_text = ' '.join([str(v).lower() for v in values])
+                
+                # If filter matches, show the item
+                if filter_text in item_text:
+                    self.results_tree.item(item, tags=())
+                    visible_count += 1
+                else:
+                    # If no match, add 'hidden' tag
+                    self.results_tree.item(item, tags=('hidden',))
+            
+            # Configure tag to hide items not matching filter
+            self.results_tree.tag_configure('hidden', foreground='#aaaaaa')
+            
+            # Update status - show count of visible items
+            total_count = len(self.results_tree.get_children())
+            if 'update_status' in self.callbacks:
+                self.callbacks['update_status'](f"Showing {visible_count} of {total_count} results matching '{filter_text}'")
+                
+        except Exception as e:
+            # Ensure exception doesn't crash the application
+            logging.error(f"Error in quick filter: {e}")
+    
+    def _sort_column(self, column):
+        """Sort treeview by a column.
+        
+        Args:
+            column: Column ID to sort by
+        """
+        try:
+            # Get all items from treeview
+            item_list = [(self.results_tree.set(k, column), k) for k in self.results_tree.get_children('')]
+            
+            # If the column is 'modified', sort as a date
+            if column == 'modified':
+                # Custom sort logic for dates in format YYYY-MM-DD HH:MM:SS
+                item_list.sort(reverse=self.sort_direction[column])
+            else:
+                # Regular string sort for other columns
+                item_list.sort(reverse=self.sort_direction[column])
+            
+            # Update direction for next click
+            self.sort_direction[column] = not self.sort_direction[column]
+            
+            # Rearrange items in sorted positions
+            for index, (val, k) in enumerate(item_list):
+                self.results_tree.move(k, '', index)
+                
+            # Add visual indicator of sort direction to column header
+            for col in self.results_tree['columns']:
+                # Reset all headers
+                if col == column:
+                    # Use Up/Down arrows as sort indicators
+                    direction = "▼" if self.sort_direction[column] else "▲"  # Down arrow if descending, up if ascending
+                    self.results_tree.heading(col, text=f"{col.title()} {direction}")
+                else:
+                    # Remove direction indicator from other columns
+                    current_text = self.results_tree.heading(col)['text']
+                    if current_text.endswith(" ▲") or current_text.endswith(" ▼"):
+                        self.results_tree.heading(col, text=current_text[:-2])
+                    else:
+                        self.results_tree.heading(col, text=col.title())
+                        
+        except Exception as e:
+            # Ensure exception doesn't crash the application
+            logging.error(f"Error sorting column: {e}")
+    
+    def _column_resize_check(self, event):
+        """Check if user clicked on column separator for resizing.
+        
+        Args:
+            event: Mouse event
+        """
+        try:
+            region = self.results_tree.identify_region(event.x, event.y)
+            if region == "separator":
+                # Change cursor to indicate column can be resized
+                self.results_tree.config(cursor="sb_h_double_arrow")
+            else:
+                # Change cursor back to default
+                self.results_tree.config(cursor="")
+        except Exception as e:
+            # Ensure exception doesn't crash the application
+            logging.error(f"Error during column resize operation: {e}")
+</function_results>
+
+### Step 2: Fix the Keyboard Shortcuts Issue
+
+Let's check the main_window.py file to understand the current state of keyboard shortcuts:
+
+<function_calls>
+<invoke name="read_file">
+<parameter name="path">C:\Users\jrodeiro\Desktop\FindingExcellence\main.py

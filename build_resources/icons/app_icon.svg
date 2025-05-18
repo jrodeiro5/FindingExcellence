@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="250" fill="#4a7dff" />
+  <circle cx="256" cy="256" r="220" fill="#ffffff" />
+  
+  <!-- Spreadsheet Grid -->
+  <rect x="130" y="130" width="252" height="252" fill="#e6f0fa" stroke="#4a7dff" stroke-width="8" />
+  
+  <!-- Horizontal Lines -->
+  <line x1="130" y1="180" x2="382" y2="180" stroke="#4a7dff" stroke-width="4" />
+  <line x1="130" y1="230" x2="382" y2="230" stroke="#4a7dff" stroke-width="4" />
+  <line x1="130" y1="280" x2="382" y2="280" stroke="#4a7dff" stroke-width="4" />
+  <line x1="130" y1="330" x2="382" y2="330" stroke="#4a7dff" stroke-width="4" />
+  
+  <!-- Vertical Lines -->
+  <line x1="180" y1="130" x2="180" y2="382" stroke="#4a7dff" stroke-width="4" />
+  <line x1="230" y1="130" x2="230" y2="382" stroke="#4a7dff" stroke-width="4" />
+  <line x1="280" y1="130" x2="280" y2="382" stroke="#4a7dff" stroke-width="4" />
+  <line x1="330" y1="130" x2="330" y2="382" stroke="#4a7dff" stroke-width="4" />
+  
+  <!-- Magnifying Glass -->
+  <circle cx="220" cy="220" r="70" fill="none" stroke="#ff5c5c" stroke-width="12" />
+  <line x1="270" y1="270" x2="340" y2="340" stroke="#ff5c5c" stroke-width="16" stroke-linecap="round" />
+  
+  <!-- Excel "E" in top corner -->
+  <text x="140" y="170" font-family="Arial" font-weight="bold" font-size="32" fill="#4a7dff">E</text>
+</svg>

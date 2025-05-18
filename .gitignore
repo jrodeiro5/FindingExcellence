@@ -1,0 +1,49 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+build_resources/output/
+build_resources/build/
+
+# Logs and backups
+*.log
+run_log.txt
+debug_output.log
+*.bak
+*~
+.*.swp
+main.py.*
+
+# Environment
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test files
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
