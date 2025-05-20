@@ -2,7 +2,7 @@
 
 A powerful tool for finding and searching content within Excel files in your Desktop and Downloads folders.
 
-![FindingExcellence_new_logo](resources/app_FindingExcellence_new_logo.png)
+![FindingExcellence_new_logo](resources/FindingExcellence_new_logo.png)
 
 ## Features
 
