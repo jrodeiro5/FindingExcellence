@@ -1,0 +1,74 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Executables (should be distributed as releases)
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+
+# PyInstaller
+*.manifest
+*.spec
+build_resources/output/
+build_resources/build/
+build_resources/*.spec
+
+# Logs and runtime files
+*.log
+run_log.txt
+debug_output.log
+finding_excellence.log
+finding_excellence_config.json
+
+# Backup files
+*.backup
+*.bak
+*~
+.*.swp
+
+# Environment
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Windows shortcuts
+*.lnk
+
+# Temporary development scripts (but keep main build scripts)
+fix_*.bat
+setup_*.bat
+temp_*.bat
+debug_*.bat
+
+# Development utilities  
+advanced_diagnostic.py
+view_structure.py
