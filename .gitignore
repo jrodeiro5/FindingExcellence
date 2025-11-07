@@ -42,6 +42,8 @@ env/
 ENV/
 .env
 .venv
+finding_excellence_env/  # Project-specific venv
+requirements_exact.txt   # Auto-generated exact versions
 
 # IDE specific files
 .idea/

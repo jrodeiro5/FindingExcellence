@@ -134,7 +134,7 @@ class ExcelProcessor:
             return None, f"Diagnosis error: {str(general_error)}"
     
     @staticmethod
-    def search_content(file_path, keywords, case_sensitive=False):
+    def search_content(file_path, keywords, case_sensitive=False, cancel_event=None):
         """
         Search for keywords in an Excel file's content.
         
@@ -142,6 +142,7 @@ class ExcelProcessor:
             file_path: Path to the Excel file
             keywords: List of keywords to search for
             case_sensitive: Whether to perform case-sensitive search
+            cancel_event: Optional threading event for cancellation
             
         Returns:
             list: List of matches found
@@ -179,8 +180,18 @@ class ExcelProcessor:
             if isinstance(excel_data, dict):  # pandas DataFrame dict
                 # Process pandas DataFrames
                 for sheet_name, df in excel_data.items():
+                    # Check for cancellation before processing each sheet
+                    if cancel_event and cancel_event.is_set():
+                        logging.debug(f"Content search cancelled while processing sheet {sheet_name} in {file_path}")
+                        break
+                        
                     # Iterate over all cells
                     for row_idx, row_series in df.iterrows():
+                        # Check for cancellation every few rows for responsiveness
+                        if cancel_event and cancel_event.is_set() and row_idx % 50 == 0:
+                            logging.debug(f"Content search cancelled at row {row_idx} in {file_path}")
+                            break
+                            
                         for col_idx, cell_value in enumerate(row_series, start=1):
                             # Process only if not NaN
                             if pd.notna(cell_value):
@@ -199,8 +210,18 @@ class ExcelProcessor:
             elif hasattr(excel_data, 'sheetnames'):  # openpyxl Workbook
                 # Process openpyxl workbook
                 for sheet_name in excel_data.sheetnames:
+                    # Check for cancellation before processing each sheet
+                    if cancel_event and cancel_event.is_set():
+                        logging.debug(f"Content search cancelled while processing sheet {sheet_name} in {file_path}")
+                        break
+                        
                     sheet = excel_data[sheet_name]
                     for row_idx, row in enumerate(sheet.iter_rows(), start=1):
+                        # Check for cancellation every few rows for responsiveness
+                        if cancel_event and cancel_event.is_set() and row_idx % 50 == 0:
+                            logging.debug(f"Content search cancelled at row {row_idx} in {file_path}")
+                            break
+                            
                         for col_idx, cell in enumerate(row, start=1):
                             cell_value_str = str(cell.value) if cell.value is not None else ""
                             found_keyword = check_cell(cell_value_str)

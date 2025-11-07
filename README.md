@@ -21,7 +21,35 @@ A powerful tool for finding and searching content within Excel files in your Des
 
 ## Installation Options
 
-### Option 1: Run as a Python Script (Development)
+### Option 1: Using Virtual Environment (Recommended)
+
+1. **Quick Setup with Interactive Menu:**
+   ```
+   dev_menu.bat
+   ```
+   Select option 1 to create isolated environment with exact versions
+
+2. **Manual Setup:**
+   ```
+   setup_venv.bat
+   ```
+
+3. **Run the application:**
+   ```
+   activate_venv.bat
+   python main.py
+   ```
+
+### Option 2: Build Executable (End Users)
+
+1. **Create executable with isolated environment:**
+   ```
+   build_with_venv.bat
+   ```
+2. Find the executable in the `dist` folder
+3. Double-click `FindingExcellence.exe` to run (no Python installation needed)
+
+### Option 3: Legacy Installation (Not Recommended)
 
 1. Ensure you have Python 3.6+ installed (the application has been tested with Python 3.13.3)
 2. Clone this repository or download the source code
@@ -34,16 +62,7 @@ A powerful tool for finding and searching content within Excel files in your Des
    python main.py
    ```
 
-### Option 2: Build and Run as an Executable (Recommended for End Users)
-
-1. Run the installer script:
-   ```
-   install_executable.bat
-   ```
-   The script will automatically try to find your Python installation or prompt you to provide the path.
-
-2. After building, find the executable in the `dist` folder
-3. Double-click `FindingExcellence.exe` to run the application (no Python installation needed)
+**⚠️ Note:** Option 3 may have version conflicts. Use Option 1 for stable development.
 
 ## How to Use
 
@@ -84,12 +103,24 @@ A powerful tool for finding and searching content within Excel files in your Des
 
 ## Requirements
 
+### For Virtual Environment (Recommended)
+- Python 3.8+ (tested with Python 3.13.3)
+- Automatically installed in venv:
+  - pandas >= 2.3.2 (latest secure version)
+  - openpyxl >= 3.1.5
+  - tkcalendar >= 1.6.1
+  - xlrd >= 2.0.1
+  - pyinstaller >= 6.15.0
+
+### For Legacy Installation
 - Python 3.6+ (tested with Python 3.13.3)
 - pandas >= 1.5.0
 - openpyxl >= 3.0.0
 - tkcalendar >= 1.6.0
 - xlrd >= 2.0.0
 - pyinstaller >= 5.0.0 (for building the executable)
+
+**Note:** Virtual environment ensures exact versions and prevents conflicts.
 
 ## Troubleshooting
 

@@ -29,8 +29,10 @@ class ContentSearch:
             # Using fewer workers by default to avoid overwhelming systems
             max_workers = max(1, os.cpu_count() // 2)
             
-        # Initialize ThreadPoolExecutor for content search
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        self.max_workers = max_workers
+        # Don't create executor in __init__ to avoid resource leaks
+        self.executor = None
+        self._current_futures = []
     
     def search_files_contents(self, files_to_search, keywords, case_sensitive=False,
                              progress_callback=None):
@@ -49,6 +51,10 @@ class ContentSearch:
         all_results_map = {}  # Map path to results list
         processed_count = 0
         
+        # Create executor for this search session
+        if self.executor is None:
+            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+        
         try:
             # Submit all search tasks to the executor
             futures = [
@@ -56,20 +62,22 @@ class ContentSearch:
                 for file_path in files_to_search
             ]
             
+            # Store futures for potential cancellation
+            self._current_futures = futures
+            
             # Process completed futures as they finish
-            for future in concurrent.futures.as_completed(futures):
+            for future in concurrent.futures.as_completed(futures, timeout=1):
                 if self.cancel_event.is_set():
-                    # Attempt to cancel pending futures (works only in Python 3.9+)
-                    for f in futures:
-                        if not f.done(): 
-                            f.cancel()
-                    logging.info("Content search cancelled during future processing.")
+                    logging.info("Content search cancelled - stopping processing.")
                     break
                     
                 try:
-                    file_path, single_file_results = future.result()
+                    file_path, single_file_results = future.result(timeout=0.1)
                     if single_file_results:  # Only add if there are findings or errors
                         all_results_map[file_path] = single_file_results
+                except concurrent.futures.TimeoutError:
+                    # Skip this future and continue
+                    continue
                 except concurrent.futures.CancelledError:
                     logging.info("A content search task was cancelled.")
                 except Exception as e:
@@ -80,9 +88,16 @@ class ContentSearch:
                     if progress_callback:
                         progress_callback(processed_count, len(files_to_search))
         
+        except concurrent.futures.TimeoutError:
+            # Normal timeout, check if cancelled
+            if self.cancel_event.is_set():
+                logging.info("Content search timed out and cancelled.")
         except Exception as e:
             logging.error(f"Error in content search executor: {e}", exc_info=True)
             raise
+        finally:
+            # Clean up futures list
+            self._current_futures = []
             
         return all_results_map
     
@@ -98,11 +113,19 @@ class ContentSearch:
         Returns:
             tuple: (file_path, results_list)
         """
+        # Check cancellation before processing
         if self.cancel_event.is_set():
-            return file_path, []  # Return empty if cancelled
+            logging.debug(f"Skipping file {file_path} due to cancellation.")
+            return file_path, []
             
-        # Use the ExcelProcessor to handle the Excel file
-        results = ExcelProcessor.search_content(file_path, keywords, case_sensitive)
+        try:
+            # Use the ExcelProcessor to handle the Excel file
+            # Pass the cancel_event so Excel processor can also check for cancellation
+            results = ExcelProcessor.search_content(file_path, keywords, case_sensitive, self.cancel_event)
+        except Exception as e:
+            # If processing fails, log error and return empty results
+            logging.error(f"Error processing file {file_path}: {e}")
+            results = [{'error': f"Error processing file: {str(e)}", 'file_path': file_path}]
         
         return file_path, results
     
@@ -111,11 +134,44 @@ class ContentSearch:
         Cancel an ongoing search.
         """
         self.cancel_event.set()
+        
+        # Cancel all current futures if possible
+        for future in self._current_futures:
+            if not future.done():
+                future.cancel()
+        
+        logging.info("Content search cancellation requested and futures cancelled.")
     
     def shutdown(self):
         """
         Properly shut down the executor and clean up resources.
         """
-        # cancel_futures is Python 3.9+
-        has_cancel_futures = hasattr(concurrent.futures, 'CancelledError')
-        self.executor.shutdown(wait=True, cancel_futures=has_cancel_futures)
+        if self.executor is not None:
+            # First cancel any running futures
+            for future in self._current_futures:
+                if not future.done():
+                    future.cancel()
+            
+            # Try to shut down gracefully with cancel_futures if available (Python 3.9+)
+            try:
+                # Check if cancel_futures parameter is supported
+                import inspect
+                sig = inspect.signature(self.executor.shutdown)
+                if 'cancel_futures' in sig.parameters:
+                    self.executor.shutdown(wait=False, cancel_futures=True)
+                else:
+                    self.executor.shutdown(wait=False)
+            except Exception as e:
+                logging.warning(f"Error during executor shutdown: {e}")
+                # Force shutdown
+                try:
+                    self.executor.shutdown(wait=False)
+                except:
+                    pass
+            
+            # Clear the executor reference
+            self.executor = None
+        
+        # Clear futures list
+        self._current_futures = []
+        logging.info("Content search executor shut down successfully.")

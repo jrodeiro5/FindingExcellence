@@ -1,0 +1,62 @@
+{
+  "clients": {},
+  "active_client": null,
+  "discovered_accounts": {
+    "ga4_properties": [],
+    "gtm_containers": [
+      {
+        "container_id": "116512884",
+        "name": "RiffRiot | GTM",
+        "account_id": "6099576753",
+        "account_name": "Riff Riot GTM",
+        "path": "accounts/6099576753/containers/116512884",
+        "usage_context": [
+          "web"
+        ]
+      },
+      {
+        "container_id": "196740319",
+        "name": "Country Code Converter",
+        "account_id": "6251955036",
+        "account_name": "Works & Projects | Javier Rodeiro",
+        "path": "accounts/6251955036/containers/196740319",
+        "usage_context": [
+          "web"
+        ]
+      },
+      {
+        "container_id": "202850226",
+        "name": "Ecommerce - Mockup",
+        "account_id": "6262923512",
+        "account_name": "Mockup",
+        "path": "accounts/6262923512/containers/202850226",
+        "usage_context": [
+          "web"
+        ]
+      },
+      {
+        "container_id": "205582690",
+        "name": "Javier Rodeiro | Website",
+        "account_id": "6267817837",
+        "account_name": "Javier Rodeiro | Website",
+        "path": "accounts/6267817837/containers/205582690",
+        "usage_context": [
+          "web"
+        ]
+      },
+      {
+        "container_id": "230924269",
+        "name": "Addocu - GA4 PRO",
+        "account_id": "6314738177",
+        "account_name": "Addocu",
+        "path": "accounts/6314738177/containers/230924269",
+        "usage_context": [
+          "web"
+        ]
+      }
+    ],
+    "bigquery_projects": [],
+    "discovery_timestamp": "2025-10-09T16:56:35.073631"
+  },
+  "last_updated": "2025-10-09T16:56:40.995043"
+}
