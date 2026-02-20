@@ -6,9 +6,12 @@ coordinates all UI elements and interactions.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import messagebox, filedialog
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
 import os
 import threading
+import queue
 import logging
 import datetime
 import traceback
@@ -45,6 +48,12 @@ class ExcelFinderApp:
         self.cancel_event = threading.Event()
         self.filename_search_active = False
         self.content_search_active = False
+        
+        # Thread-safe communication for filename search (polling pattern)
+        self._status_queue = queue.Queue()
+        self._filename_search_complete = False
+        self._filename_search_results = None
+        self._filename_search_error = None
         
         # Initialize configuration
         self.config_manager = ConfigManager()
@@ -178,23 +187,20 @@ class ExcelFinderApp:
     
     def _setup_ui_style(self):
         """
-        Set up the UI styling for the application.
+        Fine-tune styles on top of the ttkbootstrap theme.
+        The base theme (flatly) is applied in main.py via ttk.Window.
         """
         style = ttk.Style()
-        style.theme_use('clam')  # Or 'alt', 'default', 'classic'
-        style.configure("TLabel", padding=3)
-        style.configure("TButton", padding=3)
-        style.configure("TEntry", padding=3)
+        # Treeview heading — slightly bolder than default
         style.configure("Treeview.Heading", font=('Helvetica', 10, 'bold'))
         
-        # Special style for accent button
-        style.configure("Accent.TButton", 
-                      foreground="#ffffff",
-                      background="#4a7dff",
-                      relief="raised",  # 3D style
-                      borderwidth=2,
-                      padding=8,
-                      font=('Helvetica', 10, 'bold'))
+        # Primary action button — uses ttkbootstrap 'primary' bootstyle natively
+        # but we keep a named style for compatibility with existing widget references
+        style.configure(
+            "Accent.TButton",
+            font=('Helvetica', 10, 'bold'),
+            padding=8,
+        )
                       
         style.map("Accent.TButton",
                  foreground=[('pressed', '#ffffff'), ('active', '#ffffff'), ('disabled', '#cccccc')],
@@ -298,8 +304,8 @@ class ExcelFinderApp:
         """
         self.progress_bar.stop()
         self.progress_bar.pack_forget()
-        # Force UI update
-        self.root.update()
+        # Use update_idletasks() to avoid re-entering the event loop
+        self.root.update_idletasks()
     
     def _update_progress(self, value=None):
         """
@@ -362,25 +368,39 @@ class ExcelFinderApp:
             f"CaseSensitive: {case_sensitive}"
         )
 
+        # Reset polling state for this new search
+        self._filename_search_complete = False
+        self._filename_search_results = None
+        self._filename_search_error = None
+        # Clear any leftover status messages from a previous search
+        while not self._status_queue.empty():
+            try:
+                self._status_queue.get_nowait()
+            except queue.Empty:
+                break
+
         # Start search in a separate thread
         threading.Thread(
             target=self._run_filename_search,
             args=(folder_path, filename_keywords, start_date, end_date, exclude_keywords, case_sensitive),
             daemon=True
         ).start()
+
+        # Start polling for completion — always called from the main thread
+        self.root.after(100, self._poll_filename_search_complete)
+
     
     def _run_filename_search(self, folder_path, filename_keywords, start_date, end_date, 
                             exclude_keywords, case_sensitive):
         """
         Run the filename search in a background thread.
+        Uses a queue + polling pattern: NO Tkinter calls from this thread.
+        The main thread polls via _poll_filename_search_complete.
         """
         try:
-            # Define status update callback with forced UI updates
+            # Status updates go into a thread-safe queue — main thread drains it
             def update_status(msg):
-                # Schedule the UI update
-                self.root.after(0, lambda m=msg: self.status_var.set(m))
-                # Force immediate processing of UI events
-                self.root.after(0, lambda: self.root.update_idletasks())
+                self._status_queue.put(msg)
             
             # Perform the search
             found_files = self.file_search.search_by_filename(
@@ -393,16 +413,48 @@ class ExcelFinderApp:
                 status_callback=update_status
             )
             
-            # Update UI with results
-            self.root.after(0, self._update_results_and_finalize_filename_search, 
-                          found_files, self.cancel_event.is_set())
+            # Signal completion via instance variables (no Tkinter calls here)
+            self._filename_search_results = found_files
+            self._filename_search_error = None
+            self._filename_search_complete = True
                           
         except Exception as e:
-            error_message = f"Error during filename search: {str(e)}"
-            self.root.after(0, lambda: self._handle_error("filename search", e))
-            self.root.after(0, self._stop_progress)
-            self.root.after(0, lambda: self._toggle_search_buttons(enable=True))
-            self.root.after(0, lambda: setattr(self, 'filename_search_active', False))
+            logging.error(f"Error during filename search: {e}", exc_info=True)
+            self._filename_search_results = []
+            self._filename_search_error = e
+            self._filename_search_complete = True
+    
+    def _poll_filename_search_complete(self):
+        """
+        Called every 100ms from the Tkinter main loop to check if the
+        background search thread has finished. Drains the status queue
+        and finalises the UI when done.
+        This method is ALWAYS called from the main thread — 100% safe.
+        """
+        # Drain pending status messages from the background thread
+        try:
+            while True:
+                msg = self._status_queue.get_nowait()
+                self.status_var.set(msg)
+        except queue.Empty:
+            pass
+        
+        if not self._filename_search_complete:
+            # Still running — check again in 100ms
+            self.root.after(100, self._poll_filename_search_complete)
+            return
+        
+        # Search finished (success or error)
+        if self._filename_search_error:
+            self._handle_error("filename search", self._filename_search_error)
+            self._stop_progress()
+            self._toggle_search_buttons(enable=True)
+            self.filename_search_active = False
+        else:
+            self._update_results_and_finalize_filename_search(
+                self._filename_search_results,
+                self.cancel_event.is_set()
+            )
     
     def _update_results_and_finalize_filename_search(self, files, cancelled):
         """
@@ -411,7 +463,7 @@ class ExcelFinderApp:
         # Add files to results
         self.results_panel.add_results(files)
         
-        # Reset UI state
+        # Reset UI state — stop_progress uses update_idletasks, safe inside after() callback
         self._stop_progress()
         self._toggle_search_buttons(enable=True)
         self.filename_search_active = False
@@ -430,8 +482,8 @@ class ExcelFinderApp:
                 self.results_panel.select_all_results()
                 self.status_var.set(f"Found {len(files)} files. All selected and ready for content search.")
             
-            # Force update before next phase
-            self.root.update()
+            # Flush pending draw events without re-entering the loop
+            self.root.update_idletasks()
             
             # Show content search panel
             self.content_search_panel.show(after_widget=self.search_panel.criteria_frame)
@@ -452,8 +504,8 @@ class ExcelFinderApp:
             # Hide content search panel if no results
             self.content_search_panel.hide()
         
-        # Final UI update
-        self.root.update()
+        # Final flush — do NOT call root.update() here, it causes event-loop reentrance
+        self.root.update_idletasks()
     
     def _start_content_search(self, files_to_search, keywords, case_sensitive):
         """

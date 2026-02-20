@@ -7,6 +7,7 @@ and launches the main user interface.
 
 import tkinter as tk
 from tkinter import messagebox
+import ttkbootstrap as ttk
 import sys
 import os
 import traceback
@@ -28,14 +29,17 @@ def main():
     
     # Print environment info for debugging
     logger.info(f"Python version: {sys.version}")
-    logger.info(f"Tkinter version: {tk.TkVersion}")
     logger.info(f"Current working directory: {os.getcwd()}")
     
     try:
-        # Initialize Tkinter
-        logger.info("Initializing Tkinter...")
-        root = tk.Tk()
-        root.title(f"{APP_NAME} v{VERSION}")
+        # Initialize with ttkbootstrap (modern themed Tkinter)
+        logger.info("Initializing ttkbootstrap Window...")
+        root = ttk.Window(
+            title=f"{APP_NAME} v{VERSION}",
+            themename="flatly",   # clean, professional light theme
+            size=(950, 700),
+            resizable=(True, True),
+        )
         
         # Set application icon
         try:
@@ -43,7 +47,7 @@ def main():
             if getattr(sys, 'frozen', False):
                 # Running as compiled executable
                 application_path = sys._MEIPASS
-                icon_path = os.path.join(application_path, 'icons', 'app_icon.ico')
+                icon_path = os.path.join(application_path, 'resources', 'FindingExcellence_new_logo_1.ico')
             else:
                 # Running as script
                 icon_paths = [

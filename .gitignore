@@ -21,7 +21,6 @@ build/
 *.spec
 build_resources/output/
 build_resources/build/
-build_resources/*.spec
 
 # Logs and runtime files
 *.log
@@ -42,6 +41,7 @@ env/
 ENV/
 .env
 .venv
+build_venv/
 finding_excellence_env/  # Project-specific venv
 requirements_exact.txt   # Auto-generated exact versions
 

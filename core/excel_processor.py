@@ -15,7 +15,7 @@ class ExcelProcessor:
     Processes Excel files for content searching.
     """
     
-    SUPPORTED_EXTENSIONS = ('.xls', '.xlsx', '.xlsm')
+    SUPPORTED_EXTENSIONS = ('.xls', '.xlsx', '.xlsm', '.csv')
     
     @staticmethod
     def diagnose_excel_file(file_path):
@@ -65,24 +65,25 @@ class ExcelProcessor:
                 # Try different strategies for xlsx/xlsm files
                 errors = []
                 
-                # Strategy 1: pandas with openpyxl engine
+                # Strategy 1: direct openpyxl read_only — fastest, up to 50x less memory
                 try:
-                    logging.info(f"Attempting to read file with pandas+openpyxl: {file_path}")
+                    logging.info(f"Attempting read_only openpyxl: {file_path}")
+                    wb = openpyxl.load_workbook(
+                        file_path, read_only=True, data_only=True, keep_links=False
+                    )
+                    return wb, None
+                except Exception as e:
+                    error_msg = f"read_only openpyxl error: {str(e)}"
+                    logging.error(error_msg)
+                    errors.append(error_msg)
+                
+                # Strategy 2: pandas with openpyxl (fallback for problematic files)
+                try:
+                    logging.info(f"Attempting pandas+openpyxl fallback: {file_path}")
                     df = pd.read_excel(file_path, engine='openpyxl', sheet_name=None)
                     return df, None
                 except Exception as e:
                     error_msg = f"Pandas+openpyxl error: {str(e)}"
-                    logging.error(error_msg)
-                    errors.append(error_msg)
-                
-                # Strategy 2: direct openpyxl
-                try:
-                    logging.info(f"Attempting to read file with direct openpyxl: {file_path}")
-                    # Adding strict=False to help with problematic files
-                    wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True, strict=False)
-                    return wb, None
-                except Exception as e:
-                    error_msg = f"Direct openpyxl error: {str(e)}"
                     logging.error(error_msg)
                     errors.append(error_msg)
                 

@@ -1,0 +1,12 @@
+FindingExcellence - Buscador de Archivos
+
+1. Abre FindingExcellence.exe
+2. Haz clic en 'Examinar' y selecciona la carpeta donde están tus archivos
+3. Escribe una o varias palabras clave en el buscador
+4. Pulsa 'Buscar'
+5. En los resultados puedes hacer doble clic sobre cualquier archivo para abrirlo
+
+Tipos de archivo que busca: Excel (.xlsx, .xls, .xlsm), CSV (.csv)
+
+Para buscar dentro del contenido de los archivos (no solo el nombre): 
+selecciona los archivos en los resultados y pulsa 'Buscar en contenido'.
