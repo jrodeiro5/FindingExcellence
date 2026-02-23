@@ -42,33 +42,69 @@ class SearchPanel:
     
     def _create_folder_selection(self):
         """
-        Create folder selection components.
+        Create folder selection components with listbox for multi-folder management.
         """
-        folder_frame = ttk.Frame(self.criteria_frame)
-        folder_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT, padx=5)
-        
-        # Get default search paths - both Downloads and Desktop
-        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-        
-        # Initialize with Downloads as visible path
-        self.folder_path = tk.StringVar(value=downloads_path)
-        
-        # Store actual search paths (will include both Downloads and Desktop)
-        self.search_paths = [downloads_path, desktop_path]
-        
-        folder_entry = ttk.Entry(folder_frame, textvariable=self.folder_path, width=60)
-        folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        
-        browse_btn = ttk.Button(folder_frame, text="Browse", 
-                               command=self._browse_folder)
-        browse_btn.pack(side=tk.LEFT, padx=5)
-        
-        # Add a label indicating that both folders are searched
-        ttk.Label(folder_frame, text="(Searching in both Downloads and Desktop)", 
-                 font=("Helvetica", 8, "italic")).pack(side=tk.LEFT, padx=5)
+        # Label row
+        label_frame = ttk.Frame(self.criteria_frame)
+        label_frame.pack(fill=tk.X, pady=(5, 0))
+        ttk.Label(label_frame, text="Search Folders:").pack(side=tk.LEFT, padx=5)
+
+        # Listbox and buttons container
+        container_frame = ttk.Frame(self.criteria_frame)
+        container_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Listbox with scrollbars
+        listbox_frame = ttk.Frame(container_frame)
+        listbox_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        v_scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL)
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        h_scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.HORIZONTAL)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        self.folders_listbox = tk.Listbox(
+            listbox_frame,
+            height=4,
+            yscrollcommand=v_scrollbar.set,
+            xscrollcommand=h_scrollbar.set,
+            selectmode=tk.SINGLE,
+            relief=tk.SUNKEN,
+            borderwidth=1
+        )
+        self.folders_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        v_scrollbar.config(command=self.folders_listbox.yview)
+        h_scrollbar.config(command=self.folders_listbox.xview)
+
+        # Buttons frame
+        buttons_frame = ttk.Frame(container_frame)
+        buttons_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 0))
+
+        ttk.Button(
+            buttons_frame,
+            text="Add Folder",
+            command=self._add_folder,
+            width=12
+        ).pack(fill=tk.X, pady=2)
+
+        ttk.Button(
+            buttons_frame,
+            text="Remove",
+            command=self._remove_folder,
+            width=12
+        ).pack(fill=tk.X, pady=2)
+
+        ttk.Button(
+            buttons_frame,
+            text="Reset Defaults",
+            command=self._reset_default_folders,
+            width=12
+        ).pack(fill=tk.X, pady=2)
+
+        # Load initial paths and populate listbox
+        self.search_paths = self._load_initial_paths()
+        self._populate_listbox()
     
     def _create_filename_search_options(self):
         """
@@ -181,35 +217,99 @@ class SearchPanel:
         """
         CalendarDialog(self.parent.winfo_toplevel(), string_var)
     
-    def _browse_folder(self):
+    def _load_initial_paths(self):
         """
-        Open folder browser dialog and update folder path display, while maintaining Desktop in search paths.
+        Load folder paths from config or return defaults on first run.
+
+        Returns:
+            list: List of folder paths to search
+        """
+        saved_paths = self.config.get("search_folders", None)
+
+        if isinstance(saved_paths, list) and len(saved_paths) > 0:
+            logging.info(f"Loaded search folders from config: {saved_paths}")
+            return saved_paths
+
+        # First run or missing config: return defaults
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+        defaults = [downloads_path, desktop_path]
+        logging.info(f"Using default search folders: {defaults}")
+        return defaults
+
+    def _populate_listbox(self):
+        """
+        Populate the folders listbox from self.search_paths.
+        """
+        self.folders_listbox.delete(0, tk.END)
+        for path in self.search_paths:
+            self.folders_listbox.insert(tk.END, path)
+
+    def _add_folder(self):
+        """
+        Open folder browser dialog and add selected folder to search paths.
         """
         from tkinter import filedialog
-        
-        initial_dir = self.folder_path.get() if os.path.isdir(self.folder_path.get()) else os.path.expanduser("~")
+
+        # Determine initial directory
+        initial_dir = os.path.expanduser("~")
+        for path in self.search_paths:
+            if os.path.isdir(path):
+                initial_dir = path
+                break
+
         folder = filedialog.askdirectory(initialdir=initial_dir)
-        
-        if folder:
-            # Update the displayed folder path
-            self.folder_path.set(folder)
-            
-            # Make sure our search paths includes this folder and Desktop
-            self.search_paths = [folder]
-            
-            # Add Desktop to search paths if it's not already the selected folder
-            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-            if os.path.normpath(folder) != os.path.normpath(desktop_path):
-                self.search_paths.append(desktop_path)
-                
-            # Same for Downloads folder
-            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-            if os.path.normpath(folder) != os.path.normpath(downloads_path):
-                self.search_paths.append(downloads_path)
-                
-            logging.info(f"Updated search paths to: {self.search_paths}")
-            self.config.set("last_folder", folder)
-            self.config.save_config()
+
+        if not folder:
+            return
+
+        # Check for duplicates using normalized paths
+        normalized_folder = os.path.normpath(folder)
+        normalized_existing = [os.path.normpath(p) for p in self.search_paths]
+
+        if normalized_folder in normalized_existing:
+            messagebox.showwarning("Duplicate Folder", "This folder is already in the list.")
+            return
+
+        # Add to search paths and update UI
+        self.search_paths.append(folder)
+        self._populate_listbox()
+        self._save_paths_to_config()
+        logging.info(f"Added folder to search paths: {folder}")
+
+    def _remove_folder(self):
+        """
+        Remove the selected folder from the search paths.
+        """
+        selection = self.folders_listbox.curselection()
+
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a folder to remove.")
+            return
+
+        idx = selection[0]
+        removed = self.search_paths.pop(idx)
+        self._populate_listbox()
+        self._save_paths_to_config()
+        logging.info(f"Removed folder from search paths: {removed}")
+
+    def _reset_default_folders(self):
+        """
+        Reset search paths to the default (Downloads and Desktop).
+        """
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+        self.search_paths = [downloads_path, desktop_path]
+        self._populate_listbox()
+        self._save_paths_to_config()
+        logging.info("Reset search folders to defaults")
+
+    def _save_paths_to_config(self):
+        """
+        Save the current search paths to the configuration file.
+        """
+        self.config.set("search_folders", self.search_paths)
+        self.config.save_config()
     
     def _search_by_filename(self):
         """
@@ -220,8 +320,12 @@ class SearchPanel:
             messagebox.showwarning("Search in Progress", "A filename search is already running.")
             return
         
-        # Use the combined search paths (Downloads and Desktop)
         # Verify at least one folder exists
+        if not self.search_paths:
+            messagebox.showerror("Error", "Your folder list is empty. Please add at least one folder.")
+            logging.error("Search attempt with empty folder list")
+            return
+
         valid_paths = [path for path in self.search_paths if os.path.isdir(path)]
         if not valid_paths:
             messagebox.showerror("Error", "No valid search folders found.")

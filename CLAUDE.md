@@ -8,40 +8,50 @@ FindingExcellence is a desktop GUI application for searching Excel files by file
 
 ## Build and Development Commands
 
-### Setup and Installation
+### Quick Start (Recommended)
+
+**For Developers:**
 ```bash
-# Option 1: Create and activate virtual environment (Recommended)
+# Windows Command Prompt:
+dev.bat
+
+# OR bash/Git Bash:
+bash start.sh
+```
+This creates/reuses a `venv/`, installs dependencies, and launches the app in one command. No manual setup needed.
+
+**For Distribution Builds:**
+```bash
+build_dist.bat
+```
+This creates an isolated `build_venv/`, installs all dependencies, and produces the executable in `dist/`. No Python installation required to run the built exe.
+
+### Manual Setup (if needed)
+```bash
+# Create and activate virtual environment
 python -m venv venv
 venv\Scripts\activate
 
-# Install dependencies (if not using a pre-configured venv)
+# Install dependencies
 pip install -r build_resources/requirements.txt
 
 # Run the application
 python main.py
 ```
 
-### Running Tests
-Tests are located in the `test/` directory. Run tests with:
-```bash
-# Run all tests
-python -m pytest test/
-
-# Run a specific test file
-python -m pytest test/test_search_improvements.py
-
-# Run with verbose output
-python -m pytest test/ -v
-```
-
 ### Building Executable
 ```bash
-# Build with isolated virtual environment (recommended for distribution)
-build_with_venv.bat
+# Recommended: use build_dist.bat (handles venv, dependencies, PyInstaller)
+build_dist.bat
 
-# Find the executable in the dist/ folder
-# Output: FindingExcellence.exe (no Python installation required to run)
+# OR manual:
+python -m venv build_venv
+build_venv\Scripts\activate
+pip install -r build_resources/requirements.txt pyinstaller>=6.15.0
+python -m PyInstaller build_resources\FindingExcellence.spec --distpath=dist --workpath=build --clean
 ```
+
+The executable is produced in `dist/FindingExcellence/` and requires no Python installation to run.
 
 ### Linting and Code Quality
 No formal linting configuration is in place. Use standard Python conventions (PEP 8).
@@ -103,6 +113,39 @@ No formal linting configuration is in place. Use standard Python conventions (PE
 - When running as executable, PyInstaller extracts to temp folder (`sys._MEIPASS`)
 - Icon loading handles both script and executable contexts
 - See `FindingExcellence.spec` for build configuration
+
+## UI Component Interactions
+
+The main window (`ui/main_window.py`) orchestrates all UI components:
+- **SearchPanel**: Handles filename search filters (keywords, exclusions, date range)
+- **ResultsPanel**: Displays filename search results in a sortable table
+- **ContentSearchPanel**: Controls content search on selected files
+- **ContentResultsDialog**: Modal dialog showing content search matches grouped by file
+
+All components communicate through the main application instance using callbacks and events.
+
+## Threading Model
+
+The application uses a `cancel_event` (threading.Event) for responsive cancellation:
+- Passed to FileSearch and ContentSearch classes
+- Checked during long-running operations to allow user cancellation
+- Set when user clicks cancel button or presses Escape
+- Critical for maintaining UI responsiveness during searches
+
+Search operations run in background threads while UI remains responsive.
+
+## Keyboard Shortcuts
+
+Key shortcuts implemented in the UI:
+- **Ctrl+Enter**: Start filename search
+- **Escape**: Cancel current search
+- **Ctrl+A**: Select all results
+- **Ctrl+D**: Deselect all results
+- **Ctrl+E**: Export results
+- **Ctrl+O**: Open selected file
+- **Ctrl+F**: Open containing folder
+- **Ctrl+L**: Focus quick filter
+- **F1**: Show keyboard shortcuts help
 
 ## Important File Locations
 
