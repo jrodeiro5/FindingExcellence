@@ -18,7 +18,6 @@ build/
 
 # PyInstaller
 *.manifest
-*.spec
 build_resources/output/
 build_resources/build/
 
