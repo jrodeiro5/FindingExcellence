@@ -1,0 +1,32 @@
+name: Build FindingExcellence
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build executable with PyInstaller
+        run: python -m PyInstaller FindingExcellence.spec --distpath=dist --workpath=build --clean --log-level=WARN
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FindingExcellence-Windows
+          path: dist/FindingExcellence/
+          retention-days: 30

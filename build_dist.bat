@@ -34,7 +34,7 @@ if errorlevel 1 (
 REM Install/update dependencies
 echo Installing build dependencies...
 python -m pip install -q --upgrade pip
-python -m pip install -q -r build_resources\requirements.txt
+python -m pip install -q -r requirements.txt
 
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies
@@ -51,7 +51,7 @@ REM Run PyInstaller from project root
 echo.
 echo Running PyInstaller...
 echo.
-python -m PyInstaller build_resources\FindingExcellence.spec ^
+python -m PyInstaller FindingExcellence.spec ^
     --distpath=dist ^
     --workpath=build ^
     --clean ^

@@ -12,6 +12,17 @@ import sys
 import os
 import traceback
 
+# Fix taskbar icon on Windows: set a unique AppUserModelID so Windows
+# uses our exe icon instead of the generic Python/Tkinter one.
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            'FindingExcellence.App.1.0'
+        )
+    except Exception:
+        pass
+
 from ui.main_window import ExcelFinderApp
 from utils.logging_setup import setup_logging
 
@@ -43,29 +54,20 @@ def main():
         
         # Set application icon
         try:
-            # When running as exe, PyInstaller extracts files to a temp folder
+            # When running as exe, PyInstaller extracts files to a temp folder (_MEIPASS)
             if getattr(sys, 'frozen', False):
-                # Running as compiled executable
                 application_path = sys._MEIPASS
-                icon_path = os.path.join(application_path, 'resources', 'FindingExcellence_new_logo_1.ico')
             else:
-                # Running as script
-                icon_paths = [
-                    "build_resources/icons/app_icon.ico",
-                    "resources/FindingExcellence_new_logo_1.ico"
-                ]
-                icon_path = None
-                for path in icon_paths:
-                    if os.path.exists(path):
-                        icon_path = path
-                        break
-            
-            if icon_path and os.path.exists(icon_path):
+                application_path = os.path.dirname(os.path.abspath(__file__))
+
+            icon_path = os.path.join(application_path, 'resources', 'FindingExcellence_new_logo_1.ico')
+
+            if os.path.exists(icon_path):
                 root.iconbitmap(icon_path)
                 logger.info(f"Icon loaded from: {icon_path}")
             else:
-                logger.warning(f"No icon file found. Searched: {icon_path if 'icon_path' in locals() else 'N/A'}")
-                
+                logger.warning(f"Icon not found at: {icon_path}")
+
         except Exception as e:
             logger.warning(f"Could not load icon: {e}")
         
