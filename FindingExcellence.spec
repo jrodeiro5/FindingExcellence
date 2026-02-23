@@ -4,20 +4,25 @@
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
 # Project root (where this .spec lives)
 ROOT = Path(SPECPATH)
 
+# Collect ALL files for numpy and pandas to avoid "module loaded twice" error
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
+pandas_datas, pandas_binaries, pandas_hiddenimports = collect_all('pandas')
+
 a = Analysis(
     [str(ROOT / 'main.py')],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=[] + numpy_binaries + pandas_binaries,
     datas=[
         # Include the resources folder (icons, etc.) inside the exe bundle
         (str(ROOT / 'resources'), 'resources'),
-    ],
+    ] + numpy_datas + pandas_datas,
     hiddenimports=[
         'ttkbootstrap',
         'ttkbootstrap.themes',
@@ -28,7 +33,7 @@ a = Analysis(
         'xlrd',
         'tkcalendar',
         'babel.numbers',
-    ],
+    ] + numpy_hiddenimports + pandas_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
