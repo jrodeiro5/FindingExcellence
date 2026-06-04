@@ -73,3 +73,4 @@ debug_*.bat
 # Development utilities  
 advanced_diagnostic.py
 view_structure.py
+.gitnexus
